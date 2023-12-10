@@ -15,6 +15,7 @@
     "jsonwebtoken": "^9.0.2",
     "node-jose": "^2.2.0",
     "sqlite3": "^5.1.6",
+    "supertest": "^6.3.3",
     "uuid4": "^2.0.3"
   }
 }

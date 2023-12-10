@@ -14,7 +14,7 @@ const { v4: uuidv4 } = require('uuid');
 const app = express();
 const port = 8080;
 
-//const db = new sqlite3.Database('./totally_not_my_privateKeys.db');
+const db = new sqlite3.Database('totally_not_my_privateKeys.db');
 
 let keyPair;
 let expiredKeyPair;
@@ -93,13 +93,10 @@ function decryptPrivateKey(encryptedKey) {
 
 // database operations
 function Database() {
-  //const sqlite3 = require('sqlite3').verbose();
-  //const db = new sqlite3.Database('./totally_not_my_privateKeys.db'); // create database file
+  let db = new sqlite3.Database('./totally_not_my_privateKeys.db'); // create database file
   db.run('CREATE TABLE IF NOT EXISTS keys(kid INTEGER PRIMARY KEY AUTOINCREMENT,key BLOB NOT NULL,exp INTEGER NOT NULL)'); // create keys table
   db.run('CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT,username TEXT NOT NULL UNIQUE,password_hash TEXT NOT NULL,email TEXT UNIQUE,date_registered TIMESTAMP DEFAULT CURRENT_TIMESTAMP,last_login TIMESTAMP)'); //create users table
   db.run('CREATE TABLE IF NOT EXISTS auth_logs(id INTEGER PRIMARY KEY AUTOINCREMENT,request_ip TEXT NOT NULL,request_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,user_id INTEGER,  FOREIGN KEY(user_id) REFERENCES users(id));')
-  //db.run('INSERT INTO keys(key, exp) VALUES(?, ?)', [keyPair.toPEM(true), Math.floor(Date.now() / 1000) + 3600]); // insert valid private key into database
-  //db.run('INSERT INTO keys(key, exp) VALUES(?, ?)', [expiredKeyPair.toPEM(true), Math.floor(Date.now() / 1000) - 3600]); // insert expired private key into database
 
   // Encrypt private keys before inserting into the database
   db.run('INSERT INTO keys(key, exp) VALUES(?, ?)', [encryptPrivateKey(keyPair.toPEM(true)), Math.floor(Date.now() / 1000) + 3600]);
@@ -127,29 +124,12 @@ app.get('/.well-known/jwks.json', (req, res) => {
   res.json({ keys: validKeys.map(key => key.toJSON()) });
 });
 
-/*
-app.post('/auth', (req, res) => {
-  if (req.query.expired === 'true'){
-    return res.send(expiredToken);
-  }
-  res.send(token)
-});
-*/
-
+app.use(express.json());
 app.post('/auth', async (req, res) => {
   try {
-
-    console.log(req.body)
-    //const requestIp = req.ip;
-    const requestIp = 15465
+    const requestIp = req.ip;
     const requestTimestamp = new Date().toISOString();
-
     const { username } = req.body;
-
-    if (!username) {
-      username = 'defaultUsername9';
-    }
-
     const getUserIdQuery = 'SELECT id FROM users WHERE username = ?';
 
     // Wrap the entire logic in an async function
@@ -166,8 +146,7 @@ app.post('/auth', async (req, res) => {
     };
 
     try {
-      //const userId = await getUserId();
-      const userId = 9;
+      const userId = await getUserId();
 
       if (!userId) {
         res.status(404).send('User not found');
@@ -201,82 +180,14 @@ app.post('/auth', async (req, res) => {
   }
 });
 
-// Middleware to parse JSON in the request body
 app.use(express.json());
-
-/*
-app.post('/register', (req, res) => {
-  try {
-    // Extract username and email from the request body
-    let { username, email } = req.body;
-
-    // Use default values if username is empty
-    if (!username) {
-      username = 'defaultUsername5';
-    }
-
-    // Use default values if email is empty
-    if (!email) {
-      email = 'defaultEmail5@email.com';
-    }
-
-    // Generate a secure password using UUIDv4
-    const generatedPassword = generateSecurePassword();
-
-    // Hash the generated password using Argon2
-    argon2.hash(generatedPassword.password)
-      .then((hashedPassword) => {
-        // Insert the user details and hashed password into the users table
-        const insertUserQuery = 'INSERT INTO users(username, email, password_hash) VALUES (?, ?, ?)';
-        db.run(insertUserQuery, [username, email, hashedPassword], (error) => {
-          if (error) {
-            console.error('Error during user registration:', error);
-            // Check for duplicate entry error
-            if (error.message.includes('UNIQUE constraint failed')) {
-              res.status(400).send('Username or email is already taken.');
-            } else {
-              res.status(500).send('Internal Server Error');
-            }
-          } else {
-            // Return the generated password to the user
-            res.status(201).json({ password: generatedPassword.password });
-          }
-        });
-      })
-      .catch((error) => {
-        console.error('Error during password hashing:', error);
-        res.status(500).send('Internal Server Error');
-      });
-  } catch (error) {
-    console.error('Error during user registration:', error);
-    res.status(500).send('Internal Server Error');
-  }
-});
-*/
-
 app.post('/register', async (req, res) => {
   try {
-
-    console.log(req.body);
-
-    let { username, email } = req.body;
-
-    if (!username) {
-      username = 'defaultUsername14';
-    }
-
-    if (!email) {
-      email = 'defaultEmail14@email.com';
-    }
-
-    //const generatedPassword = 'defaultPassword11'
+    const { username, email } = req.body;
     const generatedPassword = generateSecurePassword();
 
     try {
       const hashedPassword = await argon2.hash(generatedPassword.password);
-
-      console.log(hashedPassword);
-
       const insertUserQuery = 'INSERT INTO users(username, email, password_hash) VALUES (?, ?, ?)';
       await new Promise((resolve, reject) => {
         db.run(insertUserQuery, [username, email, hashedPassword], (error) => {
